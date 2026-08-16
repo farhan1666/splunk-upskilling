@@ -62,8 +62,6 @@ My working reference notes for SOC operations, threat monitoring, and Splunk usa
 
 </details>
 
-<br>
-
 ### What is a SOC & Key Functions
 
 Modern IT environments are messy, highly targeted, and constantly changing. A SOC is simply the dedicated team responsible for keeping an eye on the enterprise network and responding when things go sideways.
@@ -146,8 +144,6 @@ Threat hunting isn't waiting for a dashboard alert to go off. It's starting with
 
 </details>
 
-<br>
-
 ### What is a SIEM?
 A SIEM is the central bucket where logs from endpoints, firewalls, domain controllers, and cloud environments get dumped, parsed, and searched. Its main job is to turn massive, unreadable streams of raw text logs into actionable alerts and searchable data during an investigation.
 
@@ -182,8 +178,6 @@ A SIEM is the central bucket where logs from endpoints, firewalls, domain contro
 | **SPL (Search Processing Language)** | Splunk | Splunk's query language used to search, filter, parse, and transform log data. |
 
 </details>
-
-<br>
 
 ### What is Splunk & Core Use Cases
 At its core, Splunk is a massive search engine for text files and system logs. It ingests unstructured data, breaks it into events, and lets you query it in real time using SPL.
