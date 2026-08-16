@@ -27,10 +27,19 @@ A knowledge repository for Security Operations Center (SOC) fundamentals and Sec
     - [The Splunk / SOC Analyst Role](#the-splunk--soc-analyst-role)
     - [Splunk Deployment Editions](#splunk-deployment-editions)
     - [Splunk Core Architecture](#splunk-core-architecture)
+      - [1. Core Architectural Components](#1-core-architectural-components)
+      - [2. Supporting Management Components](#2-supporting-management-components)
+      - [3. Data Pipeline Stages](#3-data-pipeline-stages)
+  - [4. Glossary of Terms](#4-glossary-of-terms)
+  - [References \& Image Credits](#references--image-credits)
 
 ---
 
 ## 1. Security Operations Center (SOC) Overview
+
+![SOC Overview](https://i.vgy.me/s1JmKb.png)
+
+*Source: AT&T Cybersecurity*
 
 ### What is a SOC & Key Functions
 
@@ -116,16 +125,71 @@ A Security Information and Event Management (SIEM) platform is a centralized sec
 ## 3. Splunk Fundamentals
 
 ### What is Splunk & Core Use Cases
-[ADD CONTENT HERE]
+Splunk is a horizontal data platform designed to collect, index, search, analyze, and visualize unstructured, machine-generated data (logs, metrics, traces, and events) in real time. By converting raw telemetry into searchable indexed data, Splunk provides visibility across enterprise IT and security environments.
+
+* **Security Information & Event Management (SIEM):** Centralizing security telemetry to detect threats, correlate anomalous behavior, perform incident investigations, and manage compliance reporting (via Splunk Enterprise Security).
+* **IT Operations & Observability:** Monitoring system health, troubleshooting application performance, tracking uptime, and accelerating Mean Time to Resolution (MTTR).
+* **Compliance & Auditing:** Retaining long-term searchable log history required to fulfill regulatory frameworks such as PCI-DSS, HIPAA, GDPR, and ISO 27001.
+* **Business Analytics & Operational Intelligence:** Extracting actionable business metrics from raw log streams, such as user journey tracking, e-commerce transaction volumes, and application usage trends.
 
 ### The Splunk / SOC Analyst Role
-[ADD CONTENT HERE]
+A SOC Analyst uses Splunk as their primary tool for daily threat monitoring, alert investigation, and incident response. Core responsibilities using Splunk include:
+
+* **Querying Data via SPL:** Writing efficiently scoped Search Processing Language (SPL) queries to investigate security events, filter logs, parse field values, and trace attacker activity across datasets.
+* **Triage & Notable Event Analysis:** Analyzing triggered alerts within Splunk Enterprise Security (ES) to determine false vs. true positives, evaluate risk scores, and gather context.
+* **Building Dashboards & Visualizations:** Creating and customizing real-time dashboards to track ongoing security trends, monitor system health, and surface threat intelligence metrics.
+* **Threat Hunting:** Crafting statistical searches and baseline queries to discover anomalous network connections, unusual process launches, or credential abuse that bypassed static detection rules.
 
 ### Splunk Deployment Editions
 | Edition | Deployment Model | Key Characteristics |
 | :--- | :--- | :--- |
-| **Splunk Enterprise** | [ADD CONTENT] | [ADD CONTENT] |
-| **Splunk Cloud Platform** | [ADD CONTENT] | [ADD CONTENT] |
-| **Splunk Free** | [ADD CONTENT] | [ADD CONTENT] |
+| **Splunk Enterprise** | On-Premises / Self-Managed Cloud (AWS, Azure, GCP) | Full organizational control over infrastructure, data location, and retention policies. Requires self-management of hardware, cluster scale, OS, and software updates. |
+| **Splunk Cloud Platform** | Fully Managed SaaS | SaaS solution hosted and maintained entirely by Splunk. Eliminates infrastructure management overhead while scaling indexing and search capacity dynamically. |
+| **Splunk Free** | On-Premises (Single-instance local install) | Local development/lab environment capped at 500 MB/day indexing volume. Excludes native alerting, user authentication/RBAC, cluster distributed searching, and Splunk ES. |
 
 ### Splunk Core Architecture
+
+Splunk processes raw machine data through three main functional tiers and data pipeline stages:
+
+#### 1. Core Architectural Components
+* **Forwarders (Data Collection Tier):** Agents installed on remote endpoints or servers to collect raw log data and transmit it to the indexing layer.
+  * **Universal Forwarder (UF):** Lightweight agent with minimal resource footprint; handles basic log gathering and forwarding without local data parsing.
+  * **Heavy Forwarder (HF):** Full Splunk instance dedicated to pre-parsing, filtering, routing, or transforming data before sending it to indexers.
+* **Indexers (Storage & Processing Tier):** Receives incoming raw data, parses and breaks logs into discrete events, extracts timestamp/default fields, writes data to searchable index files on disk (`buckets`), and executes search requests from Search Heads.
+* **Search Heads (User Interface & Search Management Tier):** Serves the Splunk Web UI where analysts author SPL queries, run searches, view dashboards, manage knowledge objects, and trigger alerts. Coordinates distributed search queries across multiple Indexers and aggregates their results.
+
+#### 2. Supporting Management Components
+* **Deployment Server (DS):** Centralized management server used to push configuration files and app updates to fleets of Universal and Heavy Forwarders.
+* **Cluster Manager / Master Node:** Coordinates indexer clustering, manages data replication/search factor compliance, and handles failovers.
+* **License Manager (LM):** Enforces overall daily indexing quota across all indexers within a deployment framework.
+
+#### 3. Data Pipeline Stages
+![Splunk Data Pipeline Stages](https://i.vgy.me/sjPDJR.jpg)
+*Image generated via Google Gemini*
+
+---
+
+## 4. Glossary of Terms
+
+| Term | Category | Definition |
+| :--- | :--- | :--- |
+| **C2 (Command and Control)** | Cybersecurity | Infrastructure utilized by threat actors to maintain communications with compromised systems inside a target network. |
+| **CIM (Common Information Model)** | Splunk | A standardized field-naming schema in Splunk that normalizes data from disparate sources into unified fields (e.g., `src_ip`, `user`). |
+| **EDR (Endpoint Detection and Response)** | Security Tools | Software installed on endpoints to monitor process execution, file changes, and network activity to detect and contain threats. |
+| **Index** | Splunk | The logical storage container in Splunk where parsed log data and associated search keys reside on disk (`buckets`). |
+| **MITRE ATT&CK** | Cybersecurity | A globally accessible knowledge base of adversary tactics, techniques, and procedures (TTPs) based on real-world observations. |
+| **MTTD (Mean Time to Detect)** | SOC Metrics | The average time taken by a security team to discover a security incident or breach after it occurs. |
+| **MTTR (Mean Time to Respond)** | SOC Metrics | The average time taken by a security team to contain, mitigate, and resolve a detected security incident. |
+| **NDR (Network Detection & Response)** | Security Tools | Security technology that monitors network traffic flows and protocols to detect malicious activity or lateral movement. |
+| **Notable Event** | Splunk | A high-priority alert generated by correlation rules within Splunk Enterprise Security requiring analyst investigation. |
+| **SOAR (Security Orchestration, Automation, and Response)** | Security Tools | Platforms that automate incident triage, evidence collection, and containment workflows across integrated security stacks. |
+| **SPL (Search Processing Language)** | Splunk | Splunk's proprietary search language used to query, parse, calculate, and visualize indexed telemetry. |
+| **Sysmon (System Monitor)** | Windows | A Windows system service and device driver that logs detailed system activity (e.g., process creation, network connections) to the Windows Event Log. |
+| **TTPs (Tactics, Techniques, and Procedures)** | Cybersecurity | The specific patterns of behavior, technical methods, and operational strategies used by cyber adversaries. |
+
+---
+
+## References & Image Credits
+
+* **SOC Overview Diagram:** Image sourced from [AT&T Cybersecurity](https://cybersecurity.att.com/).
+* **Splunk Data Pipeline Stages Diagram:** AI-generated via Google Gemini.
