@@ -42,7 +42,7 @@ Data is uploaded manually via **Settings > Add Data > Upload**:
 | `www1` | `access.log` | `access_combined` | `web1` | `web` |
 | `www1` | `secure.log` | `linux_secure` | `web1` | `security` |
 | `www2` | `access.log` | `access_combined` | `web2` | `web` |
-| `www2` | `secure.log` | `linux_secure` | `web2` | `web` |
+| `www2` | `secure.log` | `linux_secure` | `web2` | `security` |
 | `www3` | `access.log` | `access_combined` | `web3` | `web` |
 | `www3` | `secure.log` | `linux_secure` | `web3` | `security` |
 | Root | `cisco_ironport_web.log` | `cisco:wsa:squid` | `cisco` | `cisco` |
