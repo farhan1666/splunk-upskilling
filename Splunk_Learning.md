@@ -15,14 +15,14 @@
 
 - **Core Components (The Big Three):**
   - **Forwarders:** Collects and forwards raw log data from host machines to the indexer. Types include Universal Forwarders (UF) and Heavy Forwarders (HF).
-  - **Indexers:** Receives, parses, indexes, and stores raw data on disk. Organizes data into time-based directories called **buckets**. Searching by time is the most efficient delimiter as it allows indexers to pinpoint exact disk locations.
+  - **Indexers:** Receives, parses, indexes, and stores raw data on disk. Organizes data into time-based directories called **buckets**. Contains compressed raw logs (`journal.z`) and index/lookup keys (`.tsidx`). Searching by time is the most efficient delimiter as it allows indexers to pinpoint exact disk locations.
   - **Search Heads:** User interface for crafting and executing SPL queries, creating dashboards, and directing search requests to indexers.
 - **Deployment Architectures:**
   - **Standalone (Single-Instance):** All-in-one setup where a single server acts as Search Head, Indexer, and Input collector (common for local testing/learning).
   - **Basic Deployment:** Single Splunk server (acting as Search Head and Indexer) receives data from Universal Forwarders deployed on remote host machines.
   - **Multi-Instance Deployment:** Functional separation of roles where Search Heads, Indexers, and Forwarders run on dedicated, distinct servers for enterprise scale.
 - **Clustering & Architecture Management:**
-  - **Search Head Clustering:** Requires a minimum of 3 search heads to share resources and knowledge objects. Managed by a **Deployer**.
+  - **Search Head Clustering (SHC):** Requires a minimum of 3 search heads (odd number for quorum/Raft consensus) to share resources and knowledge objects. Managed by a **Deployer**.
   - **Indexer Clustering:** Replicates data across multiple indexers using replication factors to ensure high availability and prevent data loss if a node fails.
   - **Deployment Server:** Centralized management component used to push configurations and updates to large fleets of forwarders.
 
@@ -103,15 +103,15 @@ In the Search & Reporting section of the Splunk interface there are tabs that ta
 - **Search History:** Re-populate previous searches with exact syntax and timestamps via the **Search History** dropdown directly under the search bar.
 - **Time Picker:** Filter event ranges using presets, relative/real-time windows, date/time bounds, or advanced parameters (`earliest`/`latest`).
 - **Search Modes:**
-  - **Fast:** Priorizes speed; suppresses non-essential field discovery.
-  - **Smart:** (Default) Toggles between Fast/Verbose based on whether transforming commands exist.
+  - **Fast:** Prioritizes speed; suppresses non-essential field discovery and event-level details.
+  - **Smart:** (Default) Toggles behavior based on query structure: acts like Fast mode when transforming commands exist (suppressing event lists) and Verbose mode when absent.
   - **Verbose:** Retrieves all possible event data and field extractions (highest disk read).
 - **Timeline Controls:** Hover and drag directly across the bar chart timeline to zoom in on specific time windows.
 - **Field Inspector (Left Sidebar):** View `Selected Fields` vs. `Interesting Fields`; click any field name to preview high-level value distributions.
 - **Raw Event Viewing:** Expand individual log rows via the dropdown arrow to view parsed fields, raw strings, and timestamps inline.
 - **Adding Items to Search:** Highlight raw string text or click field values inside an expanded event to append (`AND`) or exclude (`NOT`) them from the search string.
 - **Basic Operators:**
-  - **Booleans:** `AND` (implicit), `OR`, `NOT` (case-sensitive, must be capitalized).
+  - **Booleans:** `AND` (implicit), `OR`, `NOT` (case-sensitive, must be capitalized). Commands and functions are case-insensitive, but Booleans must remain uppercase.
   - **Comparison:** `=`, `!=`, `<`, `>`, `<=`, `>=`.
   - **`!=` vs `NOT` Distinction:** `field!=value` matches events where the field exists and does not equal the value; `NOT field=value` returns all events that do not match the pair, including events missing the field entirely.
 - **Wildcards (`*`):** Matches zero or more characters (e.g., `FAIL*` matches `fail`, `failed`, `failure`). Use sparingly as trailing/leading wildcards increase search cost.
@@ -198,7 +198,7 @@ Clicking any field name in the sidebar opens a summary overlay detailing value d
 
 | Command | Function | Key Arguments & Options |
 |---|---|---|
-| `top` | Returns the most common field values. (Default: top 10). | `limit=<N>`, `showperc=true\|false` |
+| `top` | Returns the most common field values. (Default: top 10). | `limit=<N>`, `showperc=true\|false`, `otherstr=<string>` |
 | `rare` | Returns the least common field values. | `limit=<N>`, `showperc=true\|false` |
 | `stats` | Calculates summary statistics over event fields. | Accepts `count`, `dc`, `sum`, `avg`, `min`, `max`, `list`, `values`, `BY` clauses |
 
@@ -229,7 +229,7 @@ Clicking any field name in the sidebar opens a summary overlay detailing value d
 - **`startswith` / `endswith`:** Defines structural boundaries for a transaction using search terms, event IDs, or field-value matches (e.g., `startswith="login"` `endswith="logout"`).
 
 ### Performance Considerations: `transaction` vs. `stats`
-- **Resource Overhead:** `transaction` is high-memory and computationally taxing. Use `stats` whenever possible for performance-critical queries.
+- **Resource & Memory Limits:** `transaction` is high-memory and computationally taxing, with a default limit of **1,000 events per transaction**. Exceeding limits silently splits transactions. Use `stats` whenever possible for high-volume datasets.
 - **When to Use `stats`:** Aggregate metrics, large datasets, performant searches, or simple grouping with no limits on events per group.
 - **When to Use `transaction`:** Investigating specific incident timelines, session tracking, sequence analysis (start/end boundaries), or reading grouped event bodies directly (e.g., email threads, user web browsing history via `JSESSIONID`).
 
@@ -245,8 +245,9 @@ Clicking any field name in the sidebar opens a summary overlay detailing value d
   - `strptime(string, format)`: Converts human-readable time strings into Epoch time (seconds since Jan 1, 1970).
   - `strftime(epoch, format)`: Formats Epoch timestamps into custom human-readable date/time strings (e.g., `%m/%d/%Y %H:%M`).
   - Common time variables: `%J` (day of the year, 1-366), `%H` (24-hour hour), `%M` (minute).
-- **Conditional Logic (`case`):**
-  - Evaluates pairs of conditions and return values sequentially: `eval new_field=case(condition1, "value1", condition2, "value2")`.
+- **Conditional & Coalesce Logic:**
+  - `case()`: Evaluates pairs of conditions and return values sequentially: `eval new_field=case(condition1, "value1", condition2, "value2")`.
+  - `coalesce()`: Returns the first non-null field value from a list of field arguments: `eval user=coalesce(src_user, dest_user, "unknown")`.
 - **String & Utility Functions:**
   - `md5(string)`: Computes an MD5 hash over field values.
   - Inline aggregation count: `| stats count(eval(status=404)) AS "404_Errors"`.
@@ -255,7 +256,7 @@ Clicking any field name in the sidebar opens a summary overlay detailing value d
 - **Pipeline Placement:** `search` can appear before or after the first pipe (`|`). `where` can *only* be used after a pipe.
 - **Quote Syntax in `where`:**
   - **Double quotes (`"..."`):** Treated as string literal values (e.g., `where user="admin"`).
-  - **Single quotes (`'...'`):** Treated as field references to compare two fields against each other (e.g., `where src_ip == dest_ip`).
+  - **Single quotes (`'...'`):** Treated as field references to compare two fields against each other (e.g., `where 'src_ip' == 'dest_ip'`).
 - **Pattern Matching in `where`:** Uses functions like `like(field, "pattern%")` where `%` acts as a wildcard (e.g., `where like(src, "64.%")`).
 - **Combining Logic:** `where` implicitly evaluates Boolean statements and does not use explicit `AND` operators in the same way as initial search clauses.
 
@@ -264,6 +265,7 @@ Clicking any field name in the sidebar opens a summary overlay detailing value d
 ### Field Extraction Methods Overview
 - **Delimiters (Structured Data):** Used when data features consistent separators (CSV, TSV, space, pipe, semicolon).
 - **Regular Expressions (Unstructured Data):** Used when logs lack rigid Delimiters or require complex pattern matching (via Field Extractor UI or inline SPL commands).
+- **Extraction Timing:** Interactive Field Extractor UI and inline commands (`rex`) construct **search-time** extractions. Index-time extractions occur during ingestion parsing (`props.conf` / `transforms.conf`) and permanently alter stored data.
 
 ### Interactive Field Extractor (FX) Access Points
 The Field Extractor GUI can be accessed via three primary UI locations:
@@ -288,6 +290,7 @@ The Field Extractor GUI can be accessed via three primary UI locations:
 - **Lookup Types:**
   - **File-based Lookups:** Static CSV files uploaded manually or placed on disk.
   - **KV Store Lookups:** Dynamic key-value store for mutable or frequently updated data (beyond core Power User scope).
+  - **Automatic Lookups:** Configured under `Settings > Lookups > Automatic lookups` to automatically enrich matching events without requiring explicit `| lookup` commands in SPL queries.
 
 ### Lookup Configuration Workflow
 1. **Upload File:** `Settings > Lookups > Lookup table files > New` (e.g., upload `peopleinfo.csv`).
@@ -364,7 +367,7 @@ The Field Extractor GUI can be accessed via three primary UI locations:
 - **Knowledge Object Management:** Saved reports are categorized as Knowledge Objects (`Settings > Searches, Reports, and Alerts`) and should adhere to standard naming conventions (e.g., `SOC_Report_ExecutablesSeen`).
 
 ### Dashboard Inputs & Tokens
-- **Tokens:** Variable placeholders enclosed in dollar signs (e.g., `$loglevel$`, `$time$`) used to pass dynamic user inputs across dashboard panels or into underlying search strings.
+- **Tokens:** Variable placeholders enclosed in dollar signs (e.g., `$loglevel$`, `$time$`) used to pass dynamic user inputs across dashboard panels, titles, or underlying search strings.
 - **Common Dashboard Inputs:**
   - **Text Input:** Captures free-form user text and assigns it to a token variable (e.g., mapping text entry to `log_level=$loglevel$`).
   - **Time Picker Input:** Captures shared time boundaries (`earliest=$time.earliest$`, `latest=$time.latest$`) to globally update search timeframes across panels simultaneously.
@@ -447,7 +450,7 @@ The Field Extractor GUI can be accessed via three primary UI locations:
   - Displays the full, unrolled SPL search string executing behind the macro.
 
 ### Macro Arguments & Naming Conventions
-- **Passing Parameters:** Macros can accept one or more user-defined arguments enclosed in parentheses (e.g., `` `loglevel(error)` ``).
+- **Passing Parameters:** Macros can accept one or more user-defined positional arguments enclosed in parentheses (e.g., `` `loglevel(error)` ``).
 - **Naming Rule:** When defining a macro that uses arguments, the total number of arguments **must** be explicitly appended to the macro title in parentheses under settings:
   - *Format:* `macro_name(number_of_args)` (e.g., `loglevel(1)`).
 - **Argument Placeholders:** Arguments inside the macro definition string are enclosed in dollar signs (e.g., `log_level=$input$`).
@@ -492,7 +495,7 @@ Splunk stores indexed event data on disk in time-based directories called **buck
 
 | Bucket State | Description & Searchability |
 |---|---|
-| **Hot** | **Only writable bucket.** Actively receives newly indexed incoming log streams. Fully searchable. |
+| **Hot** | **Only writable bucket.** Actively receives newly indexed incoming log streams. Rolled to Warm based on size (`maxDataSizeMB`), max age, or Splunk service restart. Fully searchable. |
 | **Warm** | Read-only. Rolled over from Hot when size or time thresholds are met. Fully searchable. |
 | **Cold** | Read-only. Rolled over from Warm as data ages; typically moved to cheaper storage tiers. Fully searchable. |
 | **Frozen** | Archived to external storage or deleted based on retention policy. **Not searchable.** |
@@ -522,7 +525,7 @@ Splunk stores indexed event data on disk in time-based directories called **buck
 | Command / Technique | Function | Example Syntax |
 |---|---|---|
 | `datamodel` | Directly searches existing Datamodel definitions, fields, and dataset structures. | `\| datamodel Web access_combined search` |
-| `tstats` | Extremely fast statistical command that queries summary index files (`.tsidx`) of accelerated Datamodels. | `\| tstats count FROM datamodel=Web BY Web.action` |
+| `tstats` | Extremely fast statistical command that queries summary index files (`.tsidx`) of accelerated Datamodels. Fully qualified field names required (e.g., `Web.action`). | `\| tstats count FROM datamodel=Web BY Web.action` |
 
 ### Key Differences: `stats` vs. `tstats`
 - **`stats`:** Scans and parses raw event data retrieved from index buckets on disk (slower on massive datasets).
